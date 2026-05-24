@@ -1,0 +1,42 @@
+# Unity
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+*.csproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+crashlytics-buildid.txt
+sysinfo.txt
+
+# Blender
+*.blend1
+*.blend2
+
+# OS
+Thumbs.db
+.DS_Store
+
+# IDE
+.vs/
+.vscode/
+.idea/
+
+# Claude Code
+CLAUDE.local.md
