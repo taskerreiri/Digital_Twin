@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace DT.GPS
@@ -5,19 +6,28 @@ namespace DT.GPS
     public class PlayerPositionTracker : MonoBehaviour
     {
         [SerializeField] GPSProvider gpsProvider;
+        [SerializeField] MockGPSProvider mockGPSProvider;
         [SerializeField] GPSCalibrator calibrator;
         [SerializeField] Transform playerMarker;
 
+        Action<GPSData> handler;
+
         void OnEnable()
         {
-            if (gpsProvider != null)
-                gpsProvider.OnGPSUpdated += OnGPSUpdated;
+            handler = OnGPSUpdated;
+
+            if (mockGPSProvider != null)
+                mockGPSProvider.OnGPSUpdated += handler;
+            else if (gpsProvider != null)
+                gpsProvider.OnGPSUpdated += handler;
         }
 
         void OnDisable()
         {
-            if (gpsProvider != null)
-                gpsProvider.OnGPSUpdated -= OnGPSUpdated;
+            if (mockGPSProvider != null)
+                mockGPSProvider.OnGPSUpdated -= handler;
+            else if (gpsProvider != null)
+                gpsProvider.OnGPSUpdated -= handler;
         }
 
         void OnGPSUpdated(GPSData data)
