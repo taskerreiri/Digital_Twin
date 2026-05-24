@@ -7,6 +7,7 @@ namespace DT.GPS
     {
         [SerializeField] GPSProvider gpsProvider;
         [SerializeField] MockGPSProvider mockGPSProvider;
+        [SerializeField] WebGLGPSProvider webGLGPSProvider;
         [SerializeField] GPSCalibrator calibrator;
         [SerializeField] Transform playerMarker;
 
@@ -16,7 +17,9 @@ namespace DT.GPS
         {
             handler = OnGPSUpdated;
 
-            if (mockGPSProvider != null)
+            if (webGLGPSProvider != null)
+                webGLGPSProvider.OnGPSUpdated += handler;
+            else if (mockGPSProvider != null)
                 mockGPSProvider.OnGPSUpdated += handler;
             else if (gpsProvider != null)
                 gpsProvider.OnGPSUpdated += handler;
@@ -24,7 +27,9 @@ namespace DT.GPS
 
         void OnDisable()
         {
-            if (mockGPSProvider != null)
+            if (webGLGPSProvider != null)
+                webGLGPSProvider.OnGPSUpdated -= handler;
+            else if (mockGPSProvider != null)
                 mockGPSProvider.OnGPSUpdated -= handler;
             else if (gpsProvider != null)
                 gpsProvider.OnGPSUpdated -= handler;

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Digital Twin - Mission Bridge</title>
+  <style>
+    * { margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; }
+    #unity-container { width: 100%; height: 100%; }
+    #unity-canvas { width: 100%; height: 100%; background: #0f0f23; }
+    #unity-loading-bar {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      text-align: center; color: #e0e0e0; font-family: sans-serif;
+    }
+    #unity-progress-bar-empty {
+      width: 300px; height: 6px; background: #333; border-radius: 3px; margin-top: 10px;
+    }
+    #unity-progress-bar-full {
+      width: 0%; height: 100%; background: #4a9eff; border-radius: 3px;
+      transition: width 0.2s;
+    }
+  </style>
+</head>
+<body>
+  <div id="unity-container">
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+    <div id="unity-loading-bar">
+      <div>Digital Twin Loading...</div>
+      <div id="unity-progress-bar-empty">
+        <div id="unity-progress-bar-full"></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    var buildUrl = "Build";
+    var loaderUrl = buildUrl + "/{{{ LOADER_FILENAME }}}";
+
+    var config = {
+      dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}",
+      frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}",
+      codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}",
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: "{{{ COMPANY_NAME }}}",
+      productName: "{{{ PRODUCT_NAME }}}",
+      productVersion: "{{{ PRODUCT_VERSION }}}"
+    };
+
+    var progressBar = document.getElementById("unity-progress-bar-full");
+    var loadingBar = document.getElementById("unity-loading-bar");
+
+    var script = document.createElement("script");
+    script.src = loaderUrl;
+    script.onload = function() {
+      createUnityInstance(document.getElementById("unity-canvas"), config, function(progress) {
+        progressBar.style.width = (progress * 100) + "%";
+      }).then(function(instance) {
+        loadingBar.style.display = "none";
+        window.unityInstance = instance;
+
+        // Notify Mission Bridge that DT is ready
+        if (window.parent && window.parent.postMessage) {
+          window.parent.postMessage({ type: "dt-ready", source: "digital-twin" }, "*");
+        }
+      }).catch(function(message) {
+        alert(message);
+      });
+    };
+    document.body.appendChild(script);
+
+    // Listen for commands from Mission Bridge
+    window.addEventListener("message", function(event) {
+      if (!event.data || !event.data.type) return;
+      if (event.data.type === "dt-command" && window.unityInstance) {
+        window.unityInstance.SendMessage(
+          event.data.target || "GPSManager",
+          event.data.method,
+          event.data.payload || ""
+        );
+      }
+    });
+
+    // Auto-resize canvas
+    window.addEventListener("resize", function() {
+      var canvas = document.getElementById("unity-canvas");
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    });
+  </script>
+</body>
+</html>

@@ -9,6 +9,7 @@ namespace DT.UI
         [Header("References")]
         [SerializeField] GPSProvider gpsProvider;
         [SerializeField] MockGPSProvider mockGPSProvider;
+        [SerializeField] WebGLGPSProvider webGLGPSProvider;
         [SerializeField] GPSCalibrator calibrator;
         [SerializeField] Transform playerMarker;
 
@@ -28,7 +29,9 @@ namespace DT.UI
             if (calibrateButton != null)
                 calibrateButton.onClick.AddListener(OnCalibratePressed);
 
-            if (mockGPSProvider != null)
+            if (webGLGPSProvider != null)
+                webGLGPSProvider.OnGPSUpdated += OnGPSUpdated;
+            else if (mockGPSProvider != null)
                 mockGPSProvider.OnGPSUpdated += OnGPSUpdated;
             else if (gpsProvider != null)
                 gpsProvider.OnGPSUpdated += OnGPSUpdated;
@@ -103,7 +106,9 @@ namespace DT.UI
 
         void OnDestroy()
         {
-            if (mockGPSProvider != null)
+            if (webGLGPSProvider != null)
+                webGLGPSProvider.OnGPSUpdated -= OnGPSUpdated;
+            else if (mockGPSProvider != null)
                 mockGPSProvider.OnGPSUpdated -= OnGPSUpdated;
             else if (gpsProvider != null)
                 gpsProvider.OnGPSUpdated -= OnGPSUpdated;
