@@ -19,3 +19,11 @@ GPS連動型デジタルツイン。Blenderで職場を3Dモデリング→Unity
 - エクスポート形式: FBX または glTF
 - Unity座標系: Y-up（Blenderは Z-up なのでエクスポート時に変換）
 - GPS座標は WGS84（緯度経度）で統一
+
+## Current State (2026-05-24)
+
+- 初期セットアップ完了、GPS基盤スクリプト実装済み
+- IMGUI UIに切替、WebGLバッチビルド対応
+- Mission Bridge連携: WebGL GPSプロバイダ経由で座標受信
+- ヤードマップ抽出済み
+- 次のステップ: 実GPS連携テスト、Mission Bridge双方向通信
