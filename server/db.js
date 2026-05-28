@@ -57,6 +57,19 @@ db.exec(`
     samples     INTEGER,
     recorded_at INTEGER NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS detections (
+    track_id    TEXT PRIMARY KEY,
+    camera_id   TEXT NOT NULL,
+    class       TEXT NOT NULL,
+    confidence  REAL,
+    world_x     REAL,
+    world_z     REAL,
+    fused_with  TEXT,
+    source_ai   TEXT,
+    last_seen   INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_detections_seen ON detections(last_seen);
 `);
 
 const DEFAULT_COLORS = {
@@ -201,6 +214,56 @@ export function getCalibration() {
     lon: c.lon,
     samples: c.samples,
     recordedAt: c.recorded_at,
+  }));
+}
+
+const upsertDetection = db.prepare(`
+  INSERT INTO detections (track_id, camera_id, class, confidence, world_x, world_z, fused_with, source_ai, last_seen)
+  VALUES (@track_id, @camera_id, @class, @confidence, @world_x, @world_z, @fused_with, @source_ai, @last_seen)
+  ON CONFLICT(track_id) DO UPDATE SET
+    confidence=@confidence, world_x=@world_x, world_z=@world_z,
+    fused_with=@fused_with, source_ai=@source_ai, last_seen=@last_seen
+`);
+
+export function recordDetection(d) {
+  upsertDetection.run({
+    track_id: d.trackId,
+    camera_id: d.cameraId,
+    class: d.class,
+    confidence: d.confidence ?? null,
+    world_x: d.worldX ?? null,
+    world_z: d.worldZ ?? null,
+    fused_with: d.fusedWith ?? null,
+    source_ai: d.source_ai ?? 'yolo',
+    last_seen: Date.now(),
+  });
+}
+
+const recentWorkers = db.prepare(
+  "SELECT entity_id, last_lat, last_lon FROM entities WHERE last_seen > ?"
+);
+export function getRecentEntities(sinceMs) {
+  return recentWorkers.all(sinceMs);
+}
+
+const expireDetections = db.prepare('DELETE FROM detections WHERE last_seen < ?');
+export function purgeStaleDetections(olderThanMs) {
+  return expireDetections.run(olderThanMs).changes;
+}
+
+const allDetections = db.prepare('SELECT * FROM detections');
+export function getDetections() {
+  return allDetections.all().map((d) => ({
+    type: 'detection_update',
+    entityId: d.track_id,
+    entityType: d.class,
+    source: 'camera',
+    cameraId: d.camera_id,
+    worldX: d.world_x,
+    worldZ: d.world_z,
+    confidence: d.confidence,
+    fusedWith: d.fused_with,
+    timestamp: d.last_seen,
   }));
 }
 

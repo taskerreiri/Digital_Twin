@@ -6,7 +6,10 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { recordPosition, recordMaterial, getSnapshot, recordCalibration, getCalibration } from './db.js';
+import { recordPosition, recordMaterial, getSnapshot, recordCalibration, getCalibration,
+         recordDetection, getDetections, purgeStaleDetections } from './db.js';
+import { recomputeTransform } from './geotransform.js';
+import { fuseDetection } from './fusion.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.DT_PORT || 9300;
@@ -27,6 +30,14 @@ try {
   landmarks = JSON.parse(fs.readFileSync(landmarksPath, 'utf-8'));
 } catch (e) {
   console.warn('landmarks.json not loaded:', e.message);
+}
+
+const camerasPath = path.join(__dirname, 'cameras.json');
+let cameras = { cameras: [] };
+try {
+  cameras = JSON.parse(fs.readFileSync(camerasPath, 'utf-8'));
+} catch (e) {
+  console.warn('cameras.json not loaded:', e.message);
 }
 
 const app = express();
@@ -82,7 +93,50 @@ app.post('/api/calibration', checkAuth, (req, res) => {
     return res.status(400).json({ error: 'landmarkId, lat, lon required' });
   }
   recordCalibration({ landmarkId, lat, lon, samples });
+  recomputeTransform(); // サーバー側GPS→world変換も更新(融合用)
   res.json({ ok: true, landmarkId });
+});
+
+app.get('/api/cameras', (req, res) => {
+  res.json(cameras);
+});
+
+app.post('/api/detection', checkAuth, (req, res) => {
+  const body = req.body;
+  const cameraId = body.cameraId || 'unknown';
+  const dets = Array.isArray(body.detections) ? body.detections : [];
+  let count = 0;
+
+  for (const d of dets) {
+    const trackId = d.trackId || `${cameraId}_${d.class}_${Date.now()}_${count}`;
+    const detection = {
+      trackId,
+      cameraId,
+      class: d.class,
+      confidence: d.confidence,
+      worldX: d.worldX,
+      worldZ: d.worldZ,
+      source_ai: d.source_ai || 'yolo',
+    };
+    const fusedWith = fuseDetection(detection);
+    detection.fusedWith = fusedWith;
+    recordDetection(detection);
+
+    broadcast({
+      type: 'detection_update',
+      entityId: trackId,
+      entityType: d.class,
+      source: 'camera',
+      cameraId,
+      worldX: d.worldX,
+      worldZ: d.worldZ,
+      confidence: d.confidence,
+      fusedWith,
+      timestamp: Date.now(),
+    });
+    count++;
+  }
+  res.json({ ok: true, processed: count });
 });
 
 app.get('/api/calibration', (req, res) => {
@@ -145,11 +199,24 @@ wss.on('connection', (ws) => {
   const snapshot = getSnapshot();
   for (const e of snapshot.entities) ws.send(JSON.stringify(clean(e)));
   for (const m of snapshot.materials) ws.send(JSON.stringify(clean(m)));
+  for (const d of getDetections()) ws.send(JSON.stringify(clean(d)));
 
   ws.on('close', () => {
     console.log(`[ws] client disconnected (total: ${wss.clients.size})`);
   });
 });
+
+// 古いカメラ検出を定期削除し、監視ビューから消す (カメラから外れた対象)
+const DETECTION_TTL_MS = 5000;
+setInterval(() => {
+  const stale = getDetections().filter((d) => Date.now() - d.timestamp > DETECTION_TTL_MS);
+  const removed = purgeStaleDetections(Date.now() - DETECTION_TTL_MS);
+  if (removed > 0) {
+    for (const d of stale) {
+      broadcast({ type: 'detection_remove', entityId: d.entityId });
+    }
+  }
+}, 2000);
 
 server.listen(PORT, () => {
   console.log(`DT Server listening on http://0.0.0.0:${PORT}`);

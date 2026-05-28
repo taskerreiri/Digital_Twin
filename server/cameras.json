@@ -1,0 +1,26 @@
+{
+  "_comment": "カメラレジストリ。homographyは画像px(u,v,1)→world(X,_,Z)の3x3行列(row-major 9要素)。calibrate_camera.pyで算出後に設定。MVPはcam_01のみ。",
+  "cameras": [
+    {
+      "cameraId": "cam_01",
+      "label": "第1棟入口",
+      "type": "cctv",
+      "rtspUrl": "",
+      "coverageZone": "building_1",
+      "imageWidth": 1920,
+      "imageHeight": 1080,
+      "homography": [
+        0.09876543209876545,
+        0.0,
+        199.99999999999997,
+        0.0,
+        0.1176470588235295,
+        -227.05882352941185,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "enabled": true
+    }
+  ]
+}

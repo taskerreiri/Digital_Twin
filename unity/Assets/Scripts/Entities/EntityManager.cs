@@ -17,16 +17,22 @@ namespace DT.Entities
     [Serializable]
     public class DTMessage
     {
-        public string type;          // position_update | material_placed
+        public string type;          // position_update | material_placed | detection_update | detection_remove
         public string entityId;
-        public string entityType;    // worker | equipment | material
+        public string entityType;    // worker | equipment | material | person | vehicle
         public string displayName;
         public string color;         // hex "#RRGGBB"
         public double lat;
         public double lon;
         public string zoneId;
-        public string source;        // gps | qr_zone
+        public string source;        // gps | qr_zone | camera
         public long timestamp;
+        // カメラ検出用 (detection_update)
+        public double worldX;
+        public double worldZ;
+        public string cameraId;
+        public string fusedWith;     // 融合先GPSエンティティID
+        public float confidence;
     }
 
     /// <summary>
@@ -63,6 +69,7 @@ namespace DT.Entities
             public Vector3 targetPos;
             public string type;
             public double lat, lon;   // 最新GPS (再キャリブレーション用)
+            public bool fused;        // カメラ検出: GPS融合済みか (色更新判定用)
         }
 
         // ---- WebGL jslib bridge ----
@@ -192,8 +199,30 @@ namespace DT.Entities
         void HandleMessage(string json)
         {
             var msg = JsonUtility.FromJson<DTMessage>(json);
-            if (msg == null || string.IsNullOrEmpty(msg.entityId)) return;
+            if (msg == null) return;
 
+            // カメラ検出の消失
+            if (msg.type == "detection_remove")
+            {
+                if (!string.IsNullOrEmpty(msg.entityId) &&
+                    entities.TryGetValue(msg.entityId, out var rem))
+                {
+                    if (rem.go != null) Destroy(rem.go);
+                    entities.Remove(msg.entityId);
+                }
+                return;
+            }
+
+            if (string.IsNullOrEmpty(msg.entityId)) return;
+
+            // カメラ検出: worldX/Z をそのまま使用 (homography適用済み, calibrator不要)
+            if (msg.type == "detection_update")
+            {
+                HandleDetection(msg);
+                return;
+            }
+
+            // GPS/QR: lat/lon を calibrator で変換
             Vector3 pos = ResolvePosition(msg.lat, msg.lon, msg.entityType);
 
             if (!entities.TryGetValue(msg.entityId, out var entity))
@@ -205,6 +234,28 @@ namespace DT.Entities
             }
             entity.lat = msg.lat;
             entity.lon = msg.lon;
+            entity.targetPos = pos;
+        }
+
+        void HandleDetection(DTMessage msg)
+        {
+            float y = msg.entityType == "person" ? workerHeight : 0.5f;
+            Vector3 pos = new Vector3((float)msg.worldX, y, (float)msg.worldZ);
+            bool fused = !string.IsNullOrEmpty(msg.fusedWith);
+
+            if (!entities.TryGetValue(msg.entityId, out var entity))
+            {
+                entity = new Entity { type = msg.entityType, fused = fused };
+                entity.go = CreateCameraBlip(msg);
+                entity.go.transform.position = pos;
+                entities[msg.entityId] = entity;
+            }
+            else if (entity.fused != fused && entity.go != null)
+            {
+                // 融合状態が変化したら色とラベルを更新
+                UpdateBlipAppearance(entity.go, msg);
+                entity.fused = fused;
+            }
             entity.targetPos = pos;
         }
 
@@ -256,6 +307,58 @@ namespace DT.Entities
             label.displayName = string.IsNullOrEmpty(msg.displayName) ? msg.entityId : msg.displayName;
 
             return go;
+        }
+
+        GameObject CreateCameraBlip(DTMessage msg)
+        {
+            // カメラ検出はGPSアバターと区別: 半透明の縦長マーカー(person)/平たい箱(vehicle)
+            GameObject go;
+            if (msg.entityType == "vehicle")
+            {
+                go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                go.transform.localScale = new Vector3(equipmentScale, 1f, equipmentScale);
+            }
+            else // person
+            {
+                go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                go.transform.localScale = new Vector3(0.7f, workerHeight / 2f, 0.7f);
+            }
+            go.name = $"cam:{msg.entityType}:{msg.entityId}";
+            go.transform.SetParent(transform);
+
+            var renderer = go.GetComponent<Renderer>();
+            var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+            var mat = new Material(shader);
+            // 半透明設定 (Standard)
+            mat.SetFloat("_Mode", 3);
+            mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            mat.SetInt("_ZWrite", 0);
+            mat.EnableKeyword("_ALPHABLEND_ON");
+            mat.renderQueue = 3000;
+            renderer.material = mat;
+
+            go.AddComponent<EntityLabel>();
+            ApplyBlipStyle(go, msg);
+            return go;
+        }
+
+        // 融合済みは緑(GPSで個体確認済), 未融合はシアン(匿名検出)
+        void ApplyBlipStyle(GameObject go, DTMessage msg)
+        {
+            bool fused = !string.IsNullOrEmpty(msg.fusedWith);
+            Color col = fused ? new Color(0.4f, 0.9f, 0.6f, 0.6f)
+                              : new Color(0.3f, 0.85f, 1f, 0.5f);
+            var renderer = go.GetComponent<Renderer>();
+            if (renderer != null) renderer.material.color = col;
+            var label = go.GetComponent<EntityLabel>();
+            if (label != null)
+                label.displayName = fused ? $"CAM:{msg.fusedWith}" : $"CAM:{msg.entityType}";
+        }
+
+        void UpdateBlipAppearance(GameObject go, DTMessage msg)
+        {
+            ApplyBlipStyle(go, msg);
         }
 
         void OnDestroy()

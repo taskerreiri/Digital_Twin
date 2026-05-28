@@ -57,7 +57,17 @@ GPS連動型デジタルツイン。Blenderで職場を3Dモデリング→Unity
 ### Phase 2 設計 (docs/SPEC_PHASE2.md)
 監視カメラAI解析。60台CCTV+メンバー端末, ハイブリッドAI(ローカルYOLO一次+Claude昇格)。
 MVP=物体検出・位置 (person/vehicle/material → Homographyでworld座標 → P1 GPSと融合)。
-状態判定/OCRは後続(2.2/2.3)。設計のみ完了、実装は未着手。
+状態判定/OCRは後続(2.2/2.3)。
+
+### Phase 2 MVP 実装済み (Python 3.12: ultralytics/opencv)
+- vision/detect.py: YOLO (COCO person/car/truck/bus → person/vehicle)
+- vision/homography.py: 画像px→world地面座標 (cv2.findHomography)
+- vision/ingest.py: 画像/動画/RTSP → YOLO → homography → POST /api/detection
+- tools/calibrate_camera.py: カメラHomographyキャリブ (GUI/CLI)
+- server: cameras.json, /api/cameras, /api/detection, geotransform.js(GPS→world JS版), fusion.js(近接融合)
+- EntityManager: detection_update/removeでカメラブリップ描画(融合=緑/匿名=シアン半透明)
+- 検証済み: bus.jpg→YOLO(person×3+vehicle)→world→監視ビュー表示、GPS巡回員と融合し「CAM:worker_demo」表示
+- 注: YOLOv8nはCPU推論。60台はサンプリング/動体検知/OpenVINO最適化が今後必要
 
 ### 次のステップ
 - 点群メッシュ (点群検証/output/pipeline) を地形として統合し、landmarks.json のUnity座標を実地形に更新

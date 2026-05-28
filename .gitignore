@@ -50,3 +50,9 @@ server/*.sqlite-wal
 
 # WebGL build output
 webgl-build/
+
+# Python / Vision (YOLO weights auto-download, regenerable)
+__pycache__/
+*.pyc
+*.pt
+yolov8*.pt
