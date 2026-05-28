@@ -101,6 +101,30 @@ app.get('/api/cameras', (req, res) => {
   res.json(cameras);
 });
 
+// Phase 2.2/2.3: シーン解析結果 (状態判定/OCR) の保存・配信
+const sceneAnalysis = new Map(); // cameraId -> 最新解析
+
+app.post('/api/scene-analysis', checkAuth, (req, res) => {
+  const { cameraId, state, congestion, texts, sourceAi } = req.body;
+  if (!cameraId) return res.status(400).json({ error: 'cameraId required' });
+  const entry = {
+    type: 'scene_analysis',
+    cameraId,
+    state: state || 'unknown',
+    congestion: congestion || 'low',
+    texts: Array.isArray(texts) ? texts : [],
+    sourceAi: sourceAi || 'unknown',
+    timestamp: Date.now(),
+  };
+  sceneAnalysis.set(cameraId, entry);
+  broadcast(entry);
+  res.json({ ok: true, cameraId });
+});
+
+app.get('/api/scene-analysis', (req, res) => {
+  res.json({ analyses: Array.from(sceneAnalysis.values()) });
+});
+
 app.post('/api/detection', checkAuth, (req, res) => {
   const body = req.body;
   const cameraId = body.cameraId || 'unknown';
@@ -200,6 +224,7 @@ wss.on('connection', (ws) => {
   for (const e of snapshot.entities) ws.send(JSON.stringify(clean(e)));
   for (const m of snapshot.materials) ws.send(JSON.stringify(clean(m)));
   for (const d of getDetections()) ws.send(JSON.stringify(clean(d)));
+  for (const a of sceneAnalysis.values()) ws.send(JSON.stringify(clean(a)));
 
   ws.on('close', () => {
     console.log(`[ws] client disconnected (total: ${wss.clients.size})`);

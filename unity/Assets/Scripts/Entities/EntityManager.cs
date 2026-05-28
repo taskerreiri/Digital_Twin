@@ -33,6 +33,18 @@ namespace DT.Entities
         public string cameraId;
         public string fusedWith;     // 融合先GPSエンティティID
         public float confidence;
+        // シーン解析用 (scene_analysis)
+        public string state;         // operating | idle | abnormal | unknown
+        public string congestion;    // low | medium | high
+        public SceneText[] texts;    // OCR結果
+        public string sourceAi;      // yolo | claude | mock
+    }
+
+    [Serializable]
+    public class SceneText
+    {
+        public string text;
+        public string kind;
     }
 
     /// <summary>
@@ -62,6 +74,9 @@ namespace DT.Entities
 
         readonly Dictionary<string, Entity> entities = new();
         readonly ConcurrentQueue<string> incoming = new();
+
+        // シーン解析結果 (cameraId -> 最新)。SceneAnalysisRenderer が表示
+        public static readonly Dictionary<string, DTMessage> SceneAnalyses = new();
 
         class Entity
         {
@@ -210,6 +225,14 @@ namespace DT.Entities
                     if (rem.go != null) Destroy(rem.go);
                     entities.Remove(msg.entityId);
                 }
+                return;
+            }
+
+            // シーン解析結果 (Phase 2.2/2.3): カメラ別に保存
+            if (msg.type == "scene_analysis")
+            {
+                if (!string.IsNullOrEmpty(msg.cameraId))
+                    SceneAnalyses[msg.cameraId] = msg;
                 return;
             }
 

@@ -74,6 +74,15 @@ MVP=物体検出・位置 (person/vehicle/material → Homographyでworld座標 
 - detect.py: OpenVINOエクスポート+推論(DT_YOLO_DEVICE=openvino, DT_OV_DEVICE=gpu)。Intel Arc GPU.0で動作確認、失敗時CPU/PyTorchフォールバック
 - 検証済み: motion gate単体PASS, manager 3カメラ優先度比4:1サンプリング, OpenVINO GPU推論
 
+### Phase 2.2 状態判定 / 2.3 OCR (Claude Vision昇格) 実装済み
+- vision/escalate.py: Claude Vision (claude-opus-4-7, adaptive thinking, 構造化出力, プロンプトキャッシュ)
+  で状態判定(operating/idle/abnormal+混雑度)とOCR。ANTHROPIC_API_KEY未設定時はモック
+- vision/scene_monitor.py: カメラ画像を定期解析し /api/scene-analysis に送信
+- server: /api/scene-analysis (POST/GET) + WS scene_analysis配信
+- Unity: SceneAnalysisRenderer が右上パネルに状態(色分け)/混雑度/OCRを表示
+- 検証済み: フレーム→escalate(mock)→サーバー→Unityパネル表示のE2E。実結果はAPIキー設定時
+- 注: cv2.imreadは日本語パス不可→np.fromfile+imdecodeで回避
+
 ### 次のステップ
 - 点群メッシュ (点群検証/output/pipeline) を地形として統合し、landmarks.json のUnity座標を実地形に更新
 - Phase 2 実装 (CCTV映像取得方式の確認後)

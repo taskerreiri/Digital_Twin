@@ -67,6 +67,7 @@ public class SceneSetup
         var entityRoot = new GameObject("EntityManager");
         var entityMgr = entityRoot.AddComponent<EntityManager>();
         entityRoot.AddComponent<EntityLabelRenderer>();
+        entityRoot.AddComponent<SceneAnalysisRenderer>();
         var entitySO = new SerializedObject(entityMgr);
         entitySO.FindProperty("calibrator").objectReferenceValue = calibrator;
         entitySO.ApplyModifiedProperties();
