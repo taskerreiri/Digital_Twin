@@ -160,6 +160,7 @@ async function onPosition(pos) {
   });
   updateQueuedCount();
   syncQueue();
+  updateProximity();  // Phase 3: 自位置更新ごとに周辺再計算
 }
 
 function onGeoError(err) { log(`GPS エラー: ${err.message}`); }
@@ -357,6 +358,166 @@ function updateNetState() {
 window.addEventListener('online', () => { updateNetState(); log('オンライン復帰'); syncQueue(); });
 window.addEventListener('offline', () => { updateNetState(); log('オフライン'); });
 
+// --- Phase 3: 現場ビュー (WS購読 + 近接アラート + 俯瞰マップ) ---
+const entities = new Map();   // entityId -> {type, lat, lon, name, color, ts}
+const sceneByCam = new Map(); // cameraId -> {state, congestion, texts}
+let dtWs = null;
+let lastAlertVibe = 0;
+
+const EQUIP_ALERT_M = 20;   // 重機この距離内で警告
+const WORKER_INFO_M = 10;   // 他作業員この距離内で通知
+const MAP_RADIUS_M = 100;   // マップ表示半径
+
+function metersBetween(lat1, lon1, lat2, lon2) {
+  const mPerLat = 111320;
+  const mPerLon = mPerLat * Math.cos(lat1 * Math.PI / 180);
+  const dx = (lon2 - lon1) * mPerLon;
+  const dy = (lat2 - lat1) * mPerLat;
+  return { dist: Math.sqrt(dx * dx + dy * dy), dx, dy };
+}
+
+function connectWS() {
+  const wsUrl = cfg.serverUrl.replace(/^http/, 'ws') + '/ws';
+  try {
+    dtWs = new WebSocket(wsUrl);
+  } catch (e) {
+    log(`WS接続失敗: ${e.message}`);
+    return;
+  }
+  dtWs.onopen = () => {
+    $('wsState').innerHTML = '<span class="dot on"></span>受信中';
+    log('現場配信に接続');
+  };
+  dtWs.onmessage = (ev) => {
+    try { handleWSMessage(JSON.parse(ev.data)); } catch (e) { /* ignore */ }
+  };
+  dtWs.onclose = () => {
+    $('wsState').innerHTML = '<span class="dot off"></span>未接続';
+    setTimeout(connectWS, 3000); // 自動再接続
+  };
+  dtWs.onerror = () => {};
+}
+
+function handleWSMessage(msg) {
+  if (msg.type === 'position_update' && msg.lat != null) {
+    if (msg.entityId === cfg.entityId) return; // 自分は除外
+    entities.set(msg.entityId, {
+      type: msg.entityType, lat: msg.lat, lon: msg.lon,
+      name: msg.displayName || msg.entityId, ts: Date.now(),
+    });
+  } else if (msg.type === 'material_placed' && msg.lat != null) {
+    entities.set(msg.entityId, {
+      type: 'material', lat: msg.lat, lon: msg.lon,
+      name: msg.displayName || '敷材', ts: Date.now(),
+    });
+  } else if (msg.type === 'detection_update' && msg.lat != null) {
+    // カメラ検出はlat/lonがあれば(融合時)周辺に含める
+    entities.set(msg.entityId, {
+      type: 'camera', lat: msg.lat, lon: msg.lon,
+      name: 'カメラ:' + msg.entityType, ts: Date.now(),
+    });
+  } else if (msg.type === 'detection_remove') {
+    entities.delete(msg.entityId);
+  } else if (msg.type === 'scene_analysis') {
+    sceneByCam.set(msg.cameraId, {
+      state: msg.state, congestion: msg.congestion, texts: msg.texts || [],
+    });
+    renderAreaStatus();
+  }
+}
+
+function pruneStale() {
+  const now = Date.now();
+  for (const [id, e] of entities) {
+    if (e.type !== 'material' && now - e.ts > 15000) entities.delete(id);
+  }
+}
+
+function updateProximity() {
+  if (!lastPos) return;
+  pruneStale();
+  const near = [];
+  for (const [id, e] of entities) {
+    const { dist } = metersBetween(lastPos.lat, lastPos.lon, e.lat, e.lon);
+    near.push({ id, e, dist });
+  }
+  near.sort((a, b) => a.dist - b.dist);
+  $('nearCount').textContent = near.length;
+
+  // アラート生成
+  const alertsEl = $('alerts');
+  alertsEl.innerHTML = '';
+  let danger = false;
+  for (const n of near) {
+    let level = null;
+    if (n.e.type === 'equipment' && n.dist < EQUIP_ALERT_M) { level = 'danger'; danger = true; }
+    else if (n.e.type === 'worker' && n.dist < WORKER_INFO_M) level = 'info';
+    if (!level) continue;
+    const div = document.createElement('div');
+    div.style.cssText = `padding:8px;border-radius:6px;margin-bottom:4px;font-size:0.85rem;` +
+      (level === 'danger' ? 'background:#5a1a1a;color:#ffb0b0;border:1px solid #FF5C5C'
+                          : 'background:#2a3a2a;color:#b0ffc0');
+    div.textContent = (level === 'danger' ? '⚠ 重機接近: ' : '・') +
+      `${n.e.name} ${n.dist.toFixed(0)}m`;
+    alertsEl.appendChild(div);
+  }
+  // 重機危険接近でバイブ (Android, 3秒に1回)
+  if (danger && navigator.vibrate && Date.now() - lastAlertVibe > 3000) {
+    navigator.vibrate([200, 100, 200]);
+    lastAlertVibe = Date.now();
+  }
+  drawMiniMap(near);
+}
+
+function drawMiniMap(near) {
+  const cv = $('miniMap');
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+  // グリッド
+  ctx.strokeStyle = '#2a2f3a';
+  ctx.beginPath();
+  ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H);
+  ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2);
+  ctx.stroke();
+  // 半径円
+  ctx.strokeStyle = '#3a4250';
+  ctx.beginPath(); ctx.arc(W / 2, H / 2, W / 2 - 4, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(W / 2, H / 2, (W / 2 - 4) * (EQUIP_ALERT_M / MAP_RADIUS_M), 0, Math.PI * 2);
+  ctx.strokeStyle = '#FF5C5C44'; ctx.stroke();
+  // 自分 (中心)
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(W / 2, H / 2, 5, 0, Math.PI * 2); ctx.fill();
+  // 周辺エンティティ
+  const colors = { equipment: '#FF8C42', worker: '#4A9EFF', material: '#7ED957', camera: '#3AD8FF' };
+  const scale = (W / 2 - 4) / MAP_RADIUS_M;
+  if (!lastPos) return;
+  for (const n of near) {
+    const { dx, dy } = metersBetween(lastPos.lat, lastPos.lon, n.e.lat, n.e.lon);
+    if (n.dist > MAP_RADIUS_M) continue;
+    const px = W / 2 + dx * scale;
+    const py = H / 2 - dy * scale; // 北が上
+    ctx.fillStyle = colors[n.e.type] || '#ccc';
+    ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+function renderAreaStatus() {
+  const el = $('areaStatus');
+  if (sceneByCam.size === 0) { el.textContent = '解析待ち...'; return; }
+  const stateJp = { operating: '稼働中', idle: '停止', abnormal: '異常', unknown: '不明' };
+  const stateColor = { operating: '#7ED957', idle: '#aaa', abnormal: '#FF5C5C', unknown: '#e0c84a' };
+  el.innerHTML = '';
+  for (const [cam, s] of sceneByCam) {
+    const div = document.createElement('div');
+    div.style.cssText = 'font-size:0.85rem;margin-bottom:3px;color:#e8eaed';
+    const c = stateColor[s.state] || '#ccc';
+    div.innerHTML = `${cam}: <span style="color:${c}">${stateJp[s.state] || s.state}</span> ` +
+      `/ 混雑${s.congestion}` + (s.texts.length ? ` / OCR:${s.texts.map(t => t.text).join(' ')}` : '');
+    el.appendChild(div);
+  }
+}
+
 // --- 初期化 ---
 (async () => {
   db = await openDB();
@@ -365,6 +526,8 @@ window.addEventListener('offline', () => { updateNetState(); log('オフライ�
   await loadZones();
   await loadLandmarks();
   setInterval(syncQueue, 10000); // 定期同期
+  connectWS();                    // Phase 3: 現場配信を購読
+  setInterval(updateProximity, 2000); // 周辺を定期再計算(GPS更新が無い時も)
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(e => log(`SW登録失敗: ${e.message}`));
   }

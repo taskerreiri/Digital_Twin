@@ -1,5 +1,5 @@
 // Service Worker: アプリシェルのオフラインキャッシュ
-const CACHE = 'dt-tracker-v1';
+const CACHE = 'dt-tracker-v2';
 const ASSETS = ['./index.html', './app.js', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', (e) => {

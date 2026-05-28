@@ -99,6 +99,23 @@
   </div>
 
   <div class="card">
+    <h2>現場ビュー (周辺状況)</h2>
+    <div class="status-grid">
+      <span class="k">配信</span><span class="v" id="wsState"><span class="dot off"></span>未接続</span>
+      <span class="k">周辺</span><span class="v"><span class="badge" id="nearCount">0</span> 体</span>
+    </div>
+    <div id="alerts" style="margin-top:8px"></div>
+    <canvas id="miniMap" width="320" height="320"
+            style="width:100%;margin-top:8px;background:#11141a;border-radius:8px"></canvas>
+    <div class="sub" style="margin-top:4px">中心=自分 / 橙=重機 / 青=作業員 / 緑=敷材 / 水=カメラ検出 (半径100m)</div>
+  </div>
+
+  <div class="card">
+    <h2>エリア状態 (カメラAI)</h2>
+    <div id="areaStatus" class="sub">解析待ち...</div>
+  </div>
+
+  <div class="card">
     <h2>ログ</h2>
     <div id="log"></div>
   </div>
