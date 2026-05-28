@@ -57,6 +57,12 @@ public class SceneSetup
         trackerSO.FindProperty("playerMarker").objectReferenceValue = marker.transform;
         trackerSO.ApplyModifiedProperties();
 
+        // --- Calibration Sync (landmark-based georeference from smartphone GPS) ---
+        var calSync = gpsManager.AddComponent<CalibrationSync>();
+        var calSyncSO = new SerializedObject(calSync);
+        calSyncSO.FindProperty("calibrator").objectReferenceValue = calibrator;
+        calSyncSO.ApplyModifiedProperties();
+
         // --- Entity Manager (multi-entity real-time tracking) ---
         var entityRoot = new GameObject("EntityManager");
         var entityMgr = entityRoot.AddComponent<EntityManager>();

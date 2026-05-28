@@ -85,8 +85,14 @@ namespace DT.UI
                 new GUIStyle(labelStyle) { normal = { textColor = Color.cyan } });
             y += 30;
 
-            GUI.Label(new Rect(x, y, panelW - 20, 25), calibMsg,
-                new GUIStyle(labelStyle) { normal = { textColor = Color.yellow } });
+            // 外部(CalibrationSync)によるキャリブレーションも反映
+            string liveCalib = (calibrator != null && calibrator.IsCalibrated)
+                ? $"Calibrated! ({calibrator.PointCount} points)"
+                : calibMsg;
+            Color calibColor = (calibrator != null && calibrator.IsCalibrated)
+                ? Color.green : Color.yellow;
+            GUI.Label(new Rect(x, y, panelW - 20, 25), liveCalib,
+                new GUIStyle(labelStyle) { normal = { textColor = calibColor } });
             y += 35;
 
             GUI.Label(new Rect(x, y, 100, 25), "Point Name:", labelStyle);

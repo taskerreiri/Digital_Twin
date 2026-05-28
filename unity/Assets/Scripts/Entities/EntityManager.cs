@@ -62,6 +62,7 @@ namespace DT.Entities
             public GameObject go;
             public Vector3 targetPos;
             public string type;
+            public double lat, lon;   // 最新GPS (再キャリブレーション用)
         }
 
         // ---- WebGL jslib bridge ----
@@ -82,7 +83,31 @@ namespace DT.Entities
             if (calibrator == null)
                 calibrator = FindFirstObjectByType<GPSCalibrator>();
 
+            var calSync = FindFirstObjectByType<CalibrationSync>();
+            if (calSync != null)
+                calSync.OnCalibrationApplied += RecalculateAll;
+
             Connect();
+        }
+
+        /// <summary>キャリブレーション変更時、全エンティティの位置を再計算する</summary>
+        public void RecalculateAll()
+        {
+            foreach (var e in entities.Values)
+            {
+                if (e.go == null) continue;
+                Vector3 pos = ResolvePosition(e.lat, e.lon, e.type);
+                e.targetPos = pos;
+            }
+        }
+
+        Vector3 ResolvePosition(double lat, double lon, string entityType)
+        {
+            Vector3 pos = (calibrator != null && calibrator.IsCalibrated)
+                ? calibrator.GPSToUnity(lat, lon)
+                : FallbackPosition(lat, lon);
+            pos.y = entityType == "worker" ? workerHeight : 0.5f;
+            return pos;
         }
 
         void Connect()
@@ -169,19 +194,7 @@ namespace DT.Entities
             var msg = JsonUtility.FromJson<DTMessage>(json);
             if (msg == null || string.IsNullOrEmpty(msg.entityId)) return;
 
-            Vector3 pos;
-            if (calibrator != null && calibrator.IsCalibrated)
-            {
-                pos = calibrator.GPSToUnity(msg.lat, msg.lon);
-            }
-            else
-            {
-                // 未キャリブレーション時は緯度経度をメートル近似で仮配置
-                pos = FallbackPosition(msg.lat, msg.lon);
-            }
-
-            float height = msg.entityType == "worker" ? workerHeight : 0.5f;
-            pos.y = height;
+            Vector3 pos = ResolvePosition(msg.lat, msg.lon, msg.entityType);
 
             if (!entities.TryGetValue(msg.entityId, out var entity))
             {
@@ -190,6 +203,8 @@ namespace DT.Entities
                 entity.go.transform.position = pos;
                 entities[msg.entityId] = entity;
             }
+            entity.lat = msg.lat;
+            entity.lon = msg.lon;
             entity.targetPos = pos;
         }
 

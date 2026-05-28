@@ -81,6 +81,15 @@
   </div>
 
   <div class="card">
+    <h2>基準点記録 (ジオリファレンス)</h2>
+    <div class="sub" style="margin-bottom:8px">指定ランドマーク地点に立ち、10秒平均GPSを記録します</div>
+    <label>ランドマーク</label>
+    <select id="landmarkSelect"><option value="">選択...</option></select>
+    <button id="btnCalib" class="btn-gray">基準点を記録 (10秒平均)</button>
+    <div id="calibStatus" class="sub" style="margin-top:8px"></div>
+  </div>
+
+  <div class="card">
     <h2>敷材/製品の設置登録</h2>
     <label>種別</label>
     <input id="matType" placeholder="鋼材 / 製品A など">

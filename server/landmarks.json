@@ -1,0 +1,10 @@
+{
+  "_comment": "キャリブレーション用ランドマーク。unityX/unityZはFacilityBuilder座標式から算出した既知点。作業員がこの地点でPWAの基準点記録を押すとスマホGPSが紐付く。敷地に広く分散させ精度を確保。",
+  "landmarks": [
+    { "landmarkId": "main_gate",      "label": "正門",          "unityX": 452.5, "unityZ": -243.25 },
+    { "landmarkId": "yard_8",         "label": "8ヤード",        "unityX": 87.5,  "unityZ": -46.375 },
+    { "landmarkId": "warehouse",      "label": "設備倉庫",       "unityX": 440.0, "unityZ": -78.75 },
+    { "landmarkId": "material_yard_e","label": "材料ヤード東",    "unityX": 235.0, "unityZ": -218.75 },
+    { "landmarkId": "admin",          "label": "管理棟",         "unityX": 415.0, "unityZ": -183.75 }
+  ]
+}

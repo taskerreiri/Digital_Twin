@@ -49,6 +49,14 @@ db.exec(`
     placed_at   INTEGER NOT NULL,
     removed     INTEGER DEFAULT 0
   );
+
+  CREATE TABLE IF NOT EXISTS calibration (
+    landmark_id TEXT PRIMARY KEY,
+    lat         REAL NOT NULL,
+    lon         REAL NOT NULL,
+    samples     INTEGER,
+    recorded_at INTEGER NOT NULL
+  );
 `);
 
 const DEFAULT_COLORS = {
@@ -167,6 +175,34 @@ function getEntityName(id) {
 
 const allEntities = db.prepare('SELECT * FROM entities');
 const allMaterials = db.prepare('SELECT * FROM materials WHERE removed = 0');
+
+const upsertCalibration = db.prepare(`
+  INSERT INTO calibration (landmark_id, lat, lon, samples, recorded_at)
+  VALUES (@landmark_id, @lat, @lon, @samples, @recorded_at)
+  ON CONFLICT(landmark_id) DO UPDATE SET
+    lat = @lat, lon = @lon, samples = @samples, recorded_at = @recorded_at
+`);
+
+export function recordCalibration(evt) {
+  upsertCalibration.run({
+    landmark_id: evt.landmarkId,
+    lat: evt.lat,
+    lon: evt.lon,
+    samples: evt.samples ?? 1,
+    recorded_at: Date.now(),
+  });
+}
+
+const allCalibration = db.prepare('SELECT * FROM calibration');
+export function getCalibration() {
+  return allCalibration.all().map((c) => ({
+    landmarkId: c.landmark_id,
+    lat: c.lat,
+    lon: c.lon,
+    samples: c.samples,
+    recordedAt: c.recorded_at,
+  }));
+}
 
 export function getSnapshot() {
   const entities = allEntities.all().map((e) => ({

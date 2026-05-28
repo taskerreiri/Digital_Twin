@@ -42,7 +42,18 @@ GPS連動型デジタルツイン。Blenderで職場を3Dモデリング→Unity
 ### 旧 (単一ユーザーGPS基盤, 流用中)
 - GPSProvider/WebGLGPSProvider/MockGPSProvider, GPSCalibrator (2点アフィン変換), FacilityBuilder
 
+### ジオリファレンス (ランドマーク方式, docs/GEOREFERENCE.md)
+スマホGPS実測値でGPS↔Unity座標を確定。詳細は docs/GEOREFERENCE.md。
+- server/landmarks.json: ランドマークのUnity座標(既知)。/api/landmarks, /api/calibration
+- GPSCalibrator: N点最小二乗(Procrustes 2D相似変換)。RMSログ出力
+- CalibrationSync: landmarks+samples取得→landmarkIdでペアリング→適用→全エンティティ再配置
+- PWA「基準点記録」: 10秒平均GPSを送信
+- GPSDebugUIは外部キャリブレーション状態を「Calibrated! (N points)」緑表示
+- 検証済み: PWA→サーバー→CalibrationSync→GPSCalibrator→エンティティ再配置のE2E
+
+### 日本語表示
+- Resources/NotoSansJP.ttf (SIL OFL) を DTFonts 経由で全IMGUIに適用。WebGLで日本語表示OK
+
 ### 次のステップ
-- 実測2点でジオリファレンス確定 (GPSCalibrator)
-- 点群メッシュ (点群検証/output/pipeline) を地形として統合
+- 点群メッシュ (点群検証/output/pipeline) を地形として統合し、landmarks.json のUnity座標を実地形に更新
 - Mission Bridge 双方向通信、Phase 2 (カメラAI解析)

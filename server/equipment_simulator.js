@@ -15,10 +15,10 @@ const TOKEN = getArg('token', 'dt-poc-token');
 const N_ENTITIES = parseInt(getArg('entities', '3'), 10);
 const INTERVAL = parseInt(getArg('interval', '1000'), 10);
 
-// 基準点 (zones.json と整合する敷地中心付近)
-const BASE_LAT = 35.6817;
-const BASE_LON = 139.7674;
-const RADIUS_DEG = 0.0008; // 約80m半径
+// 基準点 (zones.json と整合する敷地中心付近)。CLI上書き可。
+const BASE_LAT = parseFloat(getArg('lat', '35.6817'));
+const BASE_LON = parseFloat(getArg('lon', '139.7674'));
+const RADIUS_DEG = parseFloat(getArg('radius', '0.0008')); // 約80m半径
 
 const entities = [];
 for (let i = 0; i < N_ENTITIES; i++) {

@@ -6,7 +6,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { recordPosition, recordMaterial, getSnapshot } from './db.js';
+import { recordPosition, recordMaterial, getSnapshot, recordCalibration, getCalibration } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.DT_PORT || 9300;
@@ -20,6 +20,14 @@ try {
   console.warn('zones.json not loaded:', e.message);
 }
 const zoneMap = new Map(zones.zones.map((z) => [z.zoneId, z]));
+
+const landmarksPath = path.join(__dirname, 'landmarks.json');
+let landmarks = { landmarks: [] };
+try {
+  landmarks = JSON.parse(fs.readFileSync(landmarksPath, 'utf-8'));
+} catch (e) {
+  console.warn('landmarks.json not loaded:', e.message);
+}
 
 const app = express();
 app.use(express.json({ limit: '5mb' }));
@@ -62,6 +70,23 @@ app.get('/api/health', (req, res) => {
 
 app.get('/api/zones', (req, res) => {
   res.json(zones);
+});
+
+app.get('/api/landmarks', (req, res) => {
+  res.json(landmarks);
+});
+
+app.post('/api/calibration', checkAuth, (req, res) => {
+  const { landmarkId, lat, lon, samples } = req.body;
+  if (!landmarkId || typeof lat !== 'number' || typeof lon !== 'number') {
+    return res.status(400).json({ error: 'landmarkId, lat, lon required' });
+  }
+  recordCalibration({ landmarkId, lat, lon, samples });
+  res.json({ ok: true, landmarkId });
+});
+
+app.get('/api/calibration', (req, res) => {
+  res.json({ samples: getCalibration() });
 });
 
 app.get('/api/entities', (req, res) => {
