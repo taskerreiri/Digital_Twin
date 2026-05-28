@@ -56,3 +56,5 @@ __pycache__/
 *.pyc
 *.pt
 yolov8*.pt
+*_openvino_model/
+*.onnx

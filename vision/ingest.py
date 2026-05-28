@@ -16,6 +16,7 @@ import urllib.request
 sys.path.insert(0, os.path.dirname(__file__))
 from detect import detect
 from homography import apply_homography, bbox_foot
+from motion import MotionGate
 
 SERVER = os.environ.get("DT_SERVER", "http://localhost:9300")
 TOKEN = os.environ.get("DT_TOKEN", "dt-poc-token")
@@ -78,6 +79,7 @@ def main():
     ap.add_argument("--rtsp")
     ap.add_argument("--fps", type=float, default=1.0, help="処理fps (動画/RTSP)")
     ap.add_argument("--loop", action="store_true", help="画像を繰り返しPOST(デモ用)")
+    ap.add_argument("--no-motion-gate", action="store_true", help="動体検知ゲートを無効化")
     args = ap.parse_args()
 
     cam = load_camera(args.camera)
@@ -108,16 +110,31 @@ def main():
         interval = 1.0 / args.fps
         last = 0
         idx = 0
+        gate = None if args.no_motion_gate else MotionGate()
+        gated = 0
+        processed = 0
         while True:
             ok, frame = cap.read()
             if not ok:
                 break
             now = time.time()
             if now - last >= interval:
-                process_frame(frame, args.camera, H, idx)
                 last = now
+                # 動体検知ゲート: 動きが無ければYOLOスキップ
+                if gate is not None:
+                    motion, score = gate.has_motion(frame)
+                    if not motion:
+                        gated += 1
+                        idx += 1
+                        continue
+                process_frame(frame, args.camera, H, idx)
+                processed += 1
                 idx += 1
         cap.release()
+        if gate is not None:
+            total = gated + processed
+            print(f"motion gate: processed {processed}/{total} frames, "
+                  f"gated {gated} ({gated/max(total,1)*100:.0f}% skipped)")
     else:
         print("specify --image / --video / --rtsp")
         sys.exit(1)

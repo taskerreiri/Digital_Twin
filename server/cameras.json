@@ -1,21 +1,69 @@
 {
-  "_comment": "カメラレジストリ。homographyは画像px(u,v,1)→world(X,_,Z)の3x3行列(row-major 9要素)。calibrate_camera.pyで算出後に設定。MVPはcam_01のみ。",
+  "_comment": "カメラレジストリ。homographyは画像px(u,v,1)→world(X,_,Z)の3x3行列(row-major 9要素)。calibrate_camera.pyで算出後に設定。priority: 1=高頻度2fps/2=標準1fps/3=低頻度0.5fps。imageSourceはデモ/テスト用静止画。",
   "cameras": [
     {
       "cameraId": "cam_01",
       "label": "第1棟入口",
       "type": "cctv",
       "rtspUrl": "",
+      "imageSource": "",
+      "priority": 2,
       "coverageZone": "building_1",
       "imageWidth": 1920,
       "imageHeight": 1080,
       "homography": [
         0.09876543209876545,
-        0.0,
+        0,
         199.99999999999997,
-        0.0,
+        0,
         0.1176470588235295,
         -227.05882352941185,
+        0,
+        0,
+        1
+      ],
+      "enabled": true
+    },
+    {
+      "cameraId": "cam_02",
+      "label": "ヤード東",
+      "type": "cctv",
+      "rtspUrl": "",
+      "imageSource": "C:\\Users\\坂本 正幸\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\ultralytics\\assets\\bus.jpg",
+      "priority": 1,
+      "coverageZone": "yard_east",
+      "imageWidth": 810,
+      "imageHeight": 1080,
+      "homography": [
+        0.1234567901234568,
+        0.0,
+        350.0,
+        0.0,
+        0.1176470588235295,
+        -177.05882352941182,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "enabled": true
+    },
+    {
+      "cameraId": "cam_03",
+      "label": "正門",
+      "type": "cctv",
+      "rtspUrl": "",
+      "imageSource": "C:\\Users\\坂本 正幸\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\ultralytics\\assets\\zidane.jpg",
+      "priority": 3,
+      "coverageZone": "main_gate",
+      "imageWidth": 1280,
+      "imageHeight": 720,
+      "homography": [
+        0.07812500000000001,
+        0.0,
+        49.99999999999999,
+        0.0,
+        0.19047619047619063,
+        -337.1428571428572,
         0.0,
         0.0,
         1.0

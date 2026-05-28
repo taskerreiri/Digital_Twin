@@ -67,7 +67,12 @@ MVP=物体検出・位置 (person/vehicle/material → Homographyでworld座標 
 - server: cameras.json, /api/cameras, /api/detection, geotransform.js(GPS→world JS版), fusion.js(近接融合)
 - EntityManager: detection_update/removeでカメラブリップ描画(融合=緑/匿名=シアン半透明)
 - 検証済み: bus.jpg→YOLO(person×3+vehicle)→world→監視ビュー表示、GPS巡回員と融合し「CAM:worker_demo」表示
-- 注: YOLOv8nはCPU推論。60台はサンプリング/動体検知/OpenVINO最適化が今後必要
+
+### Phase 2 スケール対応 実装済み
+- vision/motion.py: 動体検知ゲート(フレーム差分)。静止シーンはYOLOスキップ。ingest.py統合
+- vision/manager.py: 複数カメラを優先度別サンプリング(priority 1/2/3 → 2/1/0.5fps)で並行処理。cameras.jsonにcam_01〜03定義
+- detect.py: OpenVINOエクスポート+推論(DT_YOLO_DEVICE=openvino, DT_OV_DEVICE=gpu)。Intel Arc GPU.0で動作確認、失敗時CPU/PyTorchフォールバック
+- 検証済み: motion gate単体PASS, manager 3カメラ優先度比4:1サンプリング, OpenVINO GPU推論
 
 ### 次のステップ
 - 点群メッシュ (点群検証/output/pipeline) を地形として統合し、landmarks.json のUnity座標を実地形に更新
