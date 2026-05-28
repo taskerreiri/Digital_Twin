@@ -1,4 +1,5 @@
 using UnityEngine;
+using DT.UI;
 
 namespace DT.Entities
 {
@@ -29,6 +30,7 @@ namespace DT.Entities
                     alignment = TextAnchor.MiddleCenter,
                     fontStyle = FontStyle.Bold,
                 };
+                DTFonts.Apply(style);
             }
 
             var labels = FindObjectsByType<EntityLabel>(FindObjectsSortMode.None);

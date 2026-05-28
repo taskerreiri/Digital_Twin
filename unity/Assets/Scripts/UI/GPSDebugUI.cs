@@ -54,6 +54,9 @@ namespace DT.UI
                 fontSize = 16,
                 normal = { textColor = Color.green }
             };
+            DTFonts.Apply(labelStyle);
+            DTFonts.Apply(headerStyle);
+            DTFonts.Apply(statusStyle);
             stylesInitialized = true;
         }
 

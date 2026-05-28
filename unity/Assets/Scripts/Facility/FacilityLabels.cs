@@ -1,4 +1,5 @@
 using UnityEngine;
+using DT.UI;
 
 namespace DT.Facility
 {
@@ -28,6 +29,7 @@ namespace DT.Facility
                     alignment = TextAnchor.MiddleCenter,
                     normal = { textColor = Color.white }
                 };
+                DTFonts.Apply(labelStyle);
                 initialized = true;
             }
 
