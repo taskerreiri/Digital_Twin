@@ -2,6 +2,8 @@ using UnityEngine;
 using UnityEditor;
 using DT.GPS;
 using DT.UI;
+using DT.Facility;
+using DT.Entities;
 
 public class SceneSetup
 {
@@ -16,29 +18,29 @@ public class SceneSetup
         var tracker = gpsManager.AddComponent<PlayerPositionTracker>();
         var debugUI = gpsManager.AddComponent<GPSDebugUI>();
 
+        // --- Facility ---
+        var builder = gpsManager.AddComponent<FacilityBuilder>();
+        builder.Build();
+        Object.DestroyImmediate(builder);
+        gpsManager.AddComponent<FacilityLabels>();
+
         // --- Player Marker ---
         var marker = GameObject.CreatePrimitive(PrimitiveType.Capsule);
         marker.name = "PlayerMarker";
-        marker.transform.position = Vector3.zero;
+        marker.transform.position = new Vector3(250, 1, -175);
         var markerRenderer = marker.GetComponent<Renderer>();
         var markerMat = new Material(Shader.Find("Standard"));
         markerMat.color = Color.blue;
         markerRenderer.material = markerMat;
 
-        // --- Ground Plane ---
-        var ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
-        ground.name = "Ground";
-        ground.transform.position = Vector3.zero;
-        ground.transform.localScale = new Vector3(10, 1, 10);
-        var groundRenderer = ground.GetComponent<Renderer>();
-        var groundMat = new Material(Shader.Find("Standard"));
-        groundMat.color = new Color(0.3f, 0.6f, 0.3f);
-        groundRenderer.material = groundMat;
-
-        // --- Reference Point Markers ---
-        CreateReferencePoint("RefPoint_A", new Vector3(-20, 0.5f, -20), Color.red);
-        CreateReferencePoint("RefPoint_B", new Vector3(20, 0.5f, 20), Color.yellow);
-        CreateReferencePoint("RefPoint_C", new Vector3(-20, 0.5f, 20), Color.green);
+        // --- Camera (overhead view) ---
+        var cam = Camera.main;
+        if (cam != null)
+        {
+            cam.transform.position = new Vector3(250, 200, -175);
+            cam.transform.rotation = Quaternion.Euler(70, 0, 0);
+            cam.farClipPlane = 1000;
+        }
 
         // --- Wire up references ---
         var debugSO = new SerializedObject(debugUI);
@@ -55,6 +57,14 @@ public class SceneSetup
         trackerSO.FindProperty("playerMarker").objectReferenceValue = marker.transform;
         trackerSO.ApplyModifiedProperties();
 
+        // --- Entity Manager (multi-entity real-time tracking) ---
+        var entityRoot = new GameObject("EntityManager");
+        var entityMgr = entityRoot.AddComponent<EntityManager>();
+        entityRoot.AddComponent<EntityLabelRenderer>();
+        var entitySO = new SerializedObject(entityMgr);
+        entitySO.FindProperty("calibrator").objectReferenceValue = calibrator;
+        entitySO.ApplyModifiedProperties();
+
         // --- EventSystem ---
         if (Object.FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>() == null)
         {
@@ -63,17 +73,6 @@ public class SceneSetup
             eventSystem.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
         }
 
-        Debug.Log("Digital Twin GPS Scene setup complete!");
-    }
-
-    static void CreateReferencePoint(string name, Vector3 pos, Color color)
-    {
-        var obj = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        obj.name = name;
-        obj.transform.position = pos;
-        var renderer = obj.GetComponent<Renderer>();
-        var mat = new Material(Shader.Find("Standard"));
-        mat.color = color;
-        renderer.material = mat;
+        Debug.Log("Digital Twin GPS Scene with facility setup complete!");
     }
 }

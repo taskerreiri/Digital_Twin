@@ -1,0 +1,13 @@
+{
+  "_comment": "屋内QRゾーン定義。repLat/repLonはゾーン代表座標(中心)。実測後に更新する。",
+  "zones": [
+    { "zoneId": "building_1", "label": "第1棟", "repLat": 35.68150, "repLon": 139.76700, "indoor": true },
+    { "zoneId": "building_2", "label": "第2棟", "repLat": 35.68160, "repLon": 139.76720, "indoor": true },
+    { "zoneId": "building_3", "label": "第3棟", "repLat": 35.68170, "repLon": 139.76740, "indoor": true },
+    { "zoneId": "building_4", "label": "第4棟", "repLat": 35.68180, "repLon": 139.76760, "indoor": true },
+    { "zoneId": "building_5", "label": "第5棟", "repLat": 35.68190, "repLon": 139.76780, "indoor": true },
+    { "zoneId": "building_6", "label": "第6棟", "repLat": 35.68200, "repLon": 139.76800, "indoor": true },
+    { "zoneId": "admin", "label": "管理棟", "repLat": 35.68140, "repLon": 139.76690, "indoor": true },
+    { "zoneId": "main_gate", "label": "正門", "repLat": 35.68130, "repLon": 139.76680, "indoor": false }
+  ]
+}

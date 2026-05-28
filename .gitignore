@@ -40,3 +40,13 @@ Thumbs.db
 
 # Claude Code
 CLAUDE.local.md
+
+# DT Server / PWA (Node)
+server/node_modules/
+server/*.sqlite
+server/*.sqlite-shm
+server/*.sqlite-wal
+**/*.log
+
+# WebGL build output
+webgl-build/

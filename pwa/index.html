@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#4A9EFF">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg">
+  <title>DT Field Tracker</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif;
+      background: #1a1d24; color: #e8eaed; padding: 16px; max-width: 480px; margin: 0 auto;
+      min-height: 100vh;
+    }
+    h1 { font-size: 1.3rem; margin-bottom: 4px; color: #4A9EFF; }
+    .sub { font-size: 0.75rem; color: #8a8f98; margin-bottom: 16px; }
+    .card { background: #242830; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+    .card h2 { font-size: 0.95rem; margin-bottom: 10px; color: #b8bdc7; }
+    label { display: block; font-size: 0.8rem; color: #8a8f98; margin: 8px 0 4px; }
+    input, select {
+      width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #3a3f4a;
+      background: #1a1d24; color: #e8eaed; font-size: 0.95rem;
+    }
+    button {
+      width: 100%; padding: 13px; border: none; border-radius: 8px; font-size: 1rem;
+      font-weight: 600; cursor: pointer; margin-top: 10px; transition: opacity .15s;
+    }
+    button:active { opacity: 0.7; }
+    .btn-primary { background: #4A9EFF; color: #fff; }
+    .btn-green { background: #7ED957; color: #0a2a0a; }
+    .btn-gray { background: #3a3f4a; color: #e8eaed; }
+    .btn-stop { background: #FF5C5C; color: #fff; }
+    .status-grid { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 0.85rem; }
+    .status-grid .k { color: #8a8f98; }
+    .status-grid .v { color: #e8eaed; font-variant-numeric: tabular-nums; }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+    .dot.on { background: #7ED957; } .dot.off { background: #FF5C5C; }
+    .badge { display: inline-block; background: #3a3f4a; border-radius: 10px; padding: 2px 8px; font-size: 0.75rem; }
+    #log { font-size: 0.7rem; color: #6a6f78; max-height: 120px; overflow-y: auto; margin-top: 8px; font-family: monospace; white-space: pre-wrap; }
+    .row { display: flex; gap: 8px; }
+    .row > * { flex: 1; }
+    video { width: 100%; border-radius: 8px; margin-top: 8px; display: none; background:#000; }
+  </style>
+</head>
+<body>
+  <h1>DT Field Tracker</h1>
+  <div class="sub">作業員位置・敷材登録</div>
+
+  <div class="card">
+    <h2>設定</h2>
+    <label>サーバーURL</label>
+    <input id="serverUrl" placeholder="http://localhost:9300">
+    <label>作業員ID</label>
+    <input id="entityId" placeholder="worker_001">
+    <label>表示名</label>
+    <input id="displayName" placeholder="作業員A">
+  </div>
+
+  <div class="card">
+    <h2>位置トラッキング (屋外GPS)</h2>
+    <div class="status-grid">
+      <span class="k">状態</span><span class="v" id="trackState"><span class="dot off"></span>停止中</span>
+      <span class="k">接続</span><span class="v" id="netState"><span class="dot off"></span>-</span>
+      <span class="k">緯度</span><span class="v" id="lat">-</span>
+      <span class="k">経度</span><span class="v" id="lon">-</span>
+      <span class="k">精度</span><span class="v" id="acc">-</span>
+      <span class="k">未送信</span><span class="v"><span class="badge" id="queued">0</span> 件</span>
+    </div>
+    <button id="btnTrack" class="btn-primary">トラッキング開始</button>
+  </div>
+
+  <div class="card">
+    <h2>屋内QRチェックイン</h2>
+    <button id="btnScan" class="btn-gray">QRコードをスキャン</button>
+    <video id="scanVideo" playsinline></video>
+    <label>または手動選択</label>
+    <select id="zoneSelect"><option value="">ゾーンを選択...</option></select>
+    <button id="btnCheckin" class="btn-primary">チェックイン</button>
+  </div>
+
+  <div class="card">
+    <h2>敷材/製品の設置登録</h2>
+    <label>種別</label>
+    <input id="matType" placeholder="鋼材 / 製品A など">
+    <label>メモ (任意)</label>
+    <input id="matNote" placeholder="">
+    <button id="btnMaterial" class="btn-green">現在地に設置登録</button>
+  </div>
+
+  <div class="card">
+    <h2>ログ</h2>
+    <div id="log"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
