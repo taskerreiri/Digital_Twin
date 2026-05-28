@@ -54,6 +54,12 @@ GPS連動型デジタルツイン。Blenderで職場を3Dモデリング→Unity
 ### 日本語表示
 - Resources/NotoSansJP.ttf (SIL OFL) を DTFonts 経由で全IMGUIに適用。WebGLで日本語表示OK
 
+### Phase 2 設計 (docs/SPEC_PHASE2.md)
+監視カメラAI解析。60台CCTV+メンバー端末, ハイブリッドAI(ローカルYOLO一次+Claude昇格)。
+MVP=物体検出・位置 (person/vehicle/material → Homographyでworld座標 → P1 GPSと融合)。
+状態判定/OCRは後続(2.2/2.3)。設計のみ完了、実装は未着手。
+
 ### 次のステップ
 - 点群メッシュ (点群検証/output/pipeline) を地形として統合し、landmarks.json のUnity座標を実地形に更新
-- Mission Bridge 双方向通信、Phase 2 (カメラAI解析)
+- Phase 2 実装 (CCTV映像取得方式の確認後)
+- Mission Bridge 双方向通信
