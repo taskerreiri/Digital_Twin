@@ -83,7 +83,17 @@ MVP=物体検出・位置 (person/vehicle/material → Homographyでworld座標 
 - 検証済み: フレーム→escalate(mock)→サーバー→Unityパネル表示のE2E。実結果はAPIキー設定時
 - 注: cv2.imreadは日本語パス不可→np.fromfile+imdecodeで回避
 
+### 点群メッシュ受け入れ準備 実装済み (docs/POINTCLOUD_INTEGRATION.md)
+E57到着後すぐ流し込める受け入れ機構。実データ未着のため合成地形で検証済み。
+- Editor/TerrainMeshLoader.cs: Assets/PointCloud/のメッシュFBX/OBJを地形配置、頂点カラー
+  マテリアル、MeshCollider付与、FacilityBuilderプレースホルダ非表示。SceneSetup統合
+- Editor/LandmarkPicker.cs: Sceneビューで実メッシュ上のlandmarkをクリック取得→landmarks.json更新
+- Shaders/VertexColor.shader: Built-in RP用頂点カラー描画 (点群RGB表示)
+- gen_synthetic_terrain.py: 検証用合成地形FBX生成
+- 検証済み: 合成地形FBX→TerrainMeshLoader配置→頂点カラー表示→プレースホルダ非表示
+- Assets/PointCloud/ はgitignore (実メッシュは大容量)
+
 ### 次のステップ
-- 点群メッシュ (点群検証/output/pipeline) を地形として統合し、landmarks.json のUnity座標を実地形に更新
-- Phase 2 実装 (CCTV映像取得方式の確認後)
+- E57到着→pipeline→FBX→Assets/PointCloud/配置→LandmarkPicker整合 (手順書通り)
+- Phase 3 (現場メンバーへのリアルタイム配信)
 - Mission Bridge 双方向通信

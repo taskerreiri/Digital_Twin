@@ -58,3 +58,7 @@ __pycache__/
 yolov8*.pt
 *_openvino_model/
 *.onnx
+
+# Point cloud terrain meshes (large; dropped in per POINTCLOUD_INTEGRATION.md)
+unity/Assets/PointCloud/
+unity/Assets/PointCloud.meta

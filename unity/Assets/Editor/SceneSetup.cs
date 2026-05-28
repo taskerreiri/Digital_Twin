@@ -24,6 +24,11 @@ public class SceneSetup
         Object.DestroyImmediate(builder);
         gpsManager.AddComponent<FacilityLabels>();
 
+        // --- Terrain mesh (point cloud) ---
+        // Assets/PointCloud/ に実地形メッシュがあれば配置しプレースホルダを隠す
+        var facilityRoot = GameObject.Find("Facility");
+        TerrainMeshLoader.LoadIfPresent(facilityRoot);
+
         // --- Player Marker ---
         var marker = GameObject.CreatePrimitive(PrimitiveType.Capsule);
         marker.name = "PlayerMarker";
