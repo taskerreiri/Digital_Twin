@@ -315,7 +315,9 @@ export function getTracks({ minutes = 5, limit = 200, type = null, from = null, 
   const toMs = to != null ? Number(to) : now;
   const fromMs = from != null ? Number(from) : now - minutes * 60 * 1000;
 
-  const rows = trackRows.all({ from: fromMs, to: toMs, type: type || null });
+  const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 200;
+
+  const rows = trackRows.all({ from: fromMs, to: toMs, type: type != null && type !== '' ? type : null });
 
   // entity_id ごとにグループ化(rows は entity_id, timestamp 昇順)
   const byEntity = new Map();
@@ -331,11 +333,13 @@ export function getTracks({ minutes = 5, limit = 200, type = null, from = null, 
     byEntity.get(r.entity_id).points.push({ lat: r.lat, lon: r.lon, timestamp: r.timestamp });
   }
 
-  // 点数上限: 各エンティティで最新 limit 点(末尾)を残す
+  // 点数上限: 各エンティティで最新 safeLimit 点(末尾)を残す
   const out = [];
   for (const t of byEntity.values()) {
-    if (t.points.length > limit) t.points = t.points.slice(t.points.length - limit);
-    out.push(t);
+    out.push({
+      ...t,
+      points: t.points.length > safeLimit ? t.points.slice(t.points.length - safeLimit) : t.points,
+    });
   }
   return out;
 }

@@ -33,6 +33,7 @@ assert.ok(w1.points[0].timestamp <= w1.points[4].timestamp, 'points ascending by
 // (b) 点数上限: limit=3 で最新3点だけ
 const capped = getTracks({ minutes: 5, limit: 3 });
 const w1c = capped.find((t) => t.entityId === 't_w1');
+assert.ok(w1c, 't_w1 should be present after limit cap');
 assert.strictEqual(w1c.points.length, 3, 'limit should keep newest 3');
 assert.ok(w1c.points[2].timestamp >= w1c.points[0].timestamp, 'kept points are the newest, ascending');
 
