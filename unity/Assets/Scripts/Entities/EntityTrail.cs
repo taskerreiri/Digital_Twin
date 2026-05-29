@@ -15,8 +15,8 @@ namespace DT.Entities
         public const long WindowMs = 5 * 60 * 1000; // 5分
         public const int MaxPoints = 200;
 
-        struct P { public double lat; public double lon; public long t; }
-        readonly List<P> points = new();
+        struct TrailPoint { public double lat; public double lon; public long timestamp; }
+        readonly List<TrailPoint> points = new();
 
         LineRenderer lr;
         Color baseColor = Color.gray;
@@ -24,6 +24,10 @@ namespace DT.Entities
         float intensity = 1f; // 1=通常, <1=減光(他を強調時)
 
         Func<double, double, Vector3> resolver;
+
+        // gradient キャッシュ: baseColor/intensity が変化した時のみ作り直す
+        Gradient gradient;
+        Color lastGradientColor = new Color(-1f, -1f, -1f, -1f);
 
         void Awake()
         {
@@ -39,6 +43,12 @@ namespace DT.Entities
             lr.receiveShadows = false;
         }
 
+        void OnDestroy()
+        {
+            // LineRenderer.material はインスタンス化されるため明示的に破棄(リーク回避)
+            if (lr != null && lr.material != null) Destroy(lr.material);
+        }
+
         /// <summary>初期化。色とworld変換resolverを与える。</summary>
         public void Init(Color color, Func<double, double, Vector3> worldResolver)
         {
@@ -50,7 +60,7 @@ namespace DT.Entities
         public void SetPoints(IEnumerable<(double lat, double lon, long t)> pts)
         {
             points.Clear();
-            foreach (var p in pts) points.Add(new P { lat = p.lat, lon = p.lon, t = p.t });
+            foreach (var p in pts) points.Add(new TrailPoint { lat = p.lat, lon = p.lon, timestamp = p.t });
             Trim();
             Rebuild();
         }
@@ -58,16 +68,14 @@ namespace DT.Entities
         /// <summary>ライブ追従: 1点追加。</summary>
         public void Append(double lat, double lon, long timestamp)
         {
-            points.Add(new P { lat = lat, lon = lon, t = timestamp });
+            points.Add(new TrailPoint { lat = lat, lon = lon, timestamp = timestamp });
             Trim();
             Rebuild();
         }
 
-        /// <summary>再キャリブレーション時など、world座標を再計算。</summary>
+        /// <summary>world座標を再計算して描画。points のトリムは呼び出し側(Append/SetPoints)の責務。</summary>
         public void Rebuild()
         {
-            // 時間窓トリム(古い側 = 末尾基準)も最新点基準で評価
-            Trim();
             if (resolver == null || !visible || points.Count < 2)
             {
                 lr.positionCount = 0;
@@ -86,11 +94,11 @@ namespace DT.Entities
         void Trim()
         {
             if (points.Count == 0) return;
-            long newest = points[points.Count - 1].t;
+            long newest = points[points.Count - 1].timestamp;
             long cutoff = newest - WindowMs;
             // 時間窓外(古い点)を先頭から除去
             int drop = 0;
-            while (drop < points.Count && points[drop].t < cutoff) drop++;
+            while (drop < points.Count && points[drop].timestamp < cutoff) drop++;
             if (drop > 0) points.RemoveRange(0, drop);
             // 点数上限: 古い側を切る
             if (points.Count > MaxPoints)
@@ -100,22 +108,28 @@ namespace DT.Entities
         void ApplyGradient()
         {
             Color c = baseColor * intensity;
-            // 先頭(古)=透明寄り → 末尾(新)=濃いフェード
-            var grad = new Gradient();
-            grad.SetKeys(
-                new[] { new GradientColorKey(c, 0f), new GradientColorKey(c, 1f) },
-                new[] { new GradientAlphaKey(0.05f, 0f), new GradientAlphaKey(0.9f, 1f) });
-            lr.colorGradient = grad;
+            // 色が変わった時だけ Gradient を生成(毎Append のアロケーションを回避)
+            if (gradient == null || c != lastGradientColor)
+            {
+                gradient = new Gradient();
+                // 先頭(古)=透明寄り → 末尾(新)=濃いフェード
+                gradient.SetKeys(
+                    new[] { new GradientColorKey(c, 0f), new GradientColorKey(c, 1f) },
+                    new[] { new GradientAlphaKey(0.05f, 0f), new GradientAlphaKey(0.9f, 1f) });
+                lastGradientColor = c;
+            }
+            lr.colorGradient = gradient;
         }
 
         /// <summary>種別トグル等での表示ON/OFF。</summary>
         public void SetVisible(bool v)
         {
+            if (visible == v) return;
             visible = v;
             Rebuild();
         }
 
-        /// <summary>強調/減光。highlighted=null は通常(全体表示)、true=強調、false=減光。</summary>
+        /// <summary>強調/減光。1=通常, <1=減光。</summary>
         public void SetIntensity(float value)
         {
             intensity = value;
