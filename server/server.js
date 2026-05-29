@@ -178,8 +178,15 @@ app.get('/api/tracks', (req, res) => {
   // 将来の履歴ビューア用の受け口(未指定時は minutes 窓)
   const from = req.query.from != null ? Number(req.query.from) : null;
   const to = req.query.to != null ? Number(req.query.to) : null;
-  const tracks = getTracks({ minutes, limit, type, from, to });
-  res.json({ tracks });
+
+  if (!Number.isFinite(minutes) || minutes <= 0 ||
+      !Number.isFinite(limit) || limit <= 0 ||
+      (from != null && !Number.isFinite(from)) ||
+      (to != null && !Number.isFinite(to))) {
+    return res.status(400).json({ error: 'invalid query parameter' });
+  }
+
+  res.json({ tracks: getTracks({ minutes, limit, type, from, to }) });
 });
 
 app.post('/api/position', checkAuth, (req, res) => {
@@ -256,7 +263,7 @@ setInterval(() => {
 
 server.listen(PORT, () => {
   console.log(`DT Server listening on http://0.0.0.0:${PORT}`);
-  console.log(`  REST: /api/position /api/material /api/entities /api/zones /api/health`);
+  console.log(`  REST: /api/position /api/material /api/entities /api/zones /api/health /api/tracks`);
   console.log(`  WS:   ws://0.0.0.0:${PORT}/ws`);
   console.log(`  Token: ${TOKEN}`);
   console.log(`  Zones: ${zones.zones.length}`);

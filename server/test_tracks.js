@@ -58,5 +58,9 @@ try {
   }
   console.log(`PASS: GET /api/tracks (${body.tracks.length} tracks)`);
 } catch (e) {
-  console.log(`SKIP HTTP test (server not running?): ${e.message}`);
+  if (e.code === 'ECONNREFUSED' || e.cause?.code === 'ECONNREFUSED') {
+    console.log('SKIP HTTP test (server not running)');
+  } else {
+    throw e; // assertion失敗や想定外エラーは握り潰さない
+  }
 }
