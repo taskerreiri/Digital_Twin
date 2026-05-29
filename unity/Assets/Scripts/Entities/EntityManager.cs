@@ -305,7 +305,11 @@ namespace DT.Entities
             if (Input.GetMouseButtonDown(0))
             {
                 var cam = Camera.main;
-                if (cam != null)
+                if (cam == null)
+                {
+                    Debug.LogWarning("[EntityManager] クリック強調: MainCamera タグのカメラが無く無効化");
+                }
+                else
                 {
                     var ray = cam.ScreenPointToRay(Input.mousePosition);
                     if (Physics.Raycast(ray, out var hit))

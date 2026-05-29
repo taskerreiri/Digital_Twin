@@ -28,6 +28,7 @@ const w1 = all.find((t) => t.entityId === 't_w1');
 assert.ok(w1, 't_w1 should be present');
 assert.strictEqual(w1.points.length, 5, 'window should exclude the 10-min-old point');
 assert.strictEqual(w1.entityType, 'worker');
+assert.match(w1.color, /^#[0-9A-Fa-f]{6}$/, 'color is #RRGGBB (Unity ColorUtility 互換)');
 assert.ok(w1.points[0].timestamp <= w1.points[4].timestamp, 'points ascending by time');
 
 // (b) 点数上限: limit=3 で最新3点だけ
