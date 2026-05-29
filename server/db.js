@@ -297,4 +297,47 @@ export function getSnapshot() {
   return { entities, materials };
 }
 
+// --- 軌跡(trail)取得: positions から時間窓内の点をエンティティ別に返す ---
+// 返却は生 lat/lon/timestamp。座標変換は呼び出し側(Unity GPSCalibrator)に委ねる。
+// 将来の履歴ビューア用に from/to(エポックms)も受けるが、未指定時は minutes 窓を使う。
+const trackRows = db.prepare(`
+  SELECT p.entity_id, p.entity_type, p.lat, p.lon, p.timestamp, e.color
+  FROM positions p
+  LEFT JOIN entities e ON e.entity_id = p.entity_id
+  WHERE p.timestamp >= @from AND p.timestamp <= @to
+    AND p.lat IS NOT NULL AND p.lon IS NOT NULL
+    AND (@type IS NULL OR p.entity_type = @type)
+  ORDER BY p.entity_id ASC, p.timestamp ASC
+`);
+
+export function getTracks({ minutes = 5, limit = 200, type = null, from = null, to = null } = {}) {
+  const now = Date.now();
+  const toMs = to != null ? Number(to) : now;
+  const fromMs = from != null ? Number(from) : now - minutes * 60 * 1000;
+
+  const rows = trackRows.all({ from: fromMs, to: toMs, type: type || null });
+
+  // entity_id ごとにグループ化(rows は entity_id, timestamp 昇順)
+  const byEntity = new Map();
+  for (const r of rows) {
+    if (!byEntity.has(r.entity_id)) {
+      byEntity.set(r.entity_id, {
+        entityId: r.entity_id,
+        entityType: r.entity_type,
+        color: r.color || '#CCCCCC',
+        points: [],
+      });
+    }
+    byEntity.get(r.entity_id).points.push({ lat: r.lat, lon: r.lon, timestamp: r.timestamp });
+  }
+
+  // 点数上限: 各エンティティで最新 limit 点(末尾)を残す
+  const out = [];
+  for (const t of byEntity.values()) {
+    if (t.points.length > limit) t.points = t.points.slice(t.points.length - limit);
+    out.push(t);
+  }
+  return out;
+}
+
 export default db;
