@@ -32,22 +32,28 @@ namespace DT.UI
             EnsureStyles();
 
             // 左下にパネル
-            const float w = 180f, h = 80f;
+            const float w = 180f, h = 96f;
             var rect = new Rect(10f, Screen.height - h - 10f, w, h);
             GUI.Box(rect, GUIContent.none);
             GUILayout.BeginArea(new Rect(rect.x + 8f, rect.y + 6f, w - 16f, h - 12f));
-            GUILayout.Label("軌跡表示", headerStyle);
-
-            bool worker = GUILayout.Toggle(entityManager.ShowWorkerTrails, " 作業員", labelStyle);
-            bool equip = GUILayout.Toggle(entityManager.ShowEquipmentTrails, " 重機", labelStyle);
-
-            if (worker != entityManager.ShowWorkerTrails || equip != entityManager.ShowEquipmentTrails)
+            try
             {
-                entityManager.ShowWorkerTrails = worker;
-                entityManager.ShowEquipmentTrails = equip;
-                entityManager.ApplyTrailVisibility();
+                GUILayout.Label("軌跡表示", headerStyle);
+
+                bool worker = GUILayout.Toggle(entityManager.ShowWorkerTrails, " 作業員", labelStyle);
+                bool equip = GUILayout.Toggle(entityManager.ShowEquipmentTrails, " 重機", labelStyle);
+
+                if (worker != entityManager.ShowWorkerTrails || equip != entityManager.ShowEquipmentTrails)
+                {
+                    entityManager.ShowWorkerTrails = worker;
+                    entityManager.ShowEquipmentTrails = equip;
+                    entityManager.ApplyTrailVisibility();
+                }
             }
-            GUILayout.EndArea();
+            finally
+            {
+                GUILayout.EndArea();
+            }
         }
     }
 }
