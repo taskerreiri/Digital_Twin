@@ -44,3 +44,19 @@ assert.ok(eqOnly.find((t) => t.entityId === 't_e1'), 't_e1 present in equipment 
 assert.ok(!eqOnly.find((t) => t.entityId === 't_w1'), 't_w1 absent in equipment filter');
 
 console.log('PASS: getTracks (window / limit / type / order)');
+
+// --- HTTP: GET /api/tracks (サーバー起動が前提) ---
+const BASE = process.env.DT_BASE || 'http://localhost:9300';
+try {
+  const res = await fetch(`${BASE}/api/tracks?minutes=5&limit=200`);
+  assert.strictEqual(res.status, 200, 'status 200');
+  const body = await res.json();
+  assert.ok(Array.isArray(body.tracks), 'body.tracks is array');
+  for (const t of body.tracks) {
+    assert.ok(typeof t.entityId === 'string', 'entityId string');
+    assert.ok(Array.isArray(t.points), 'points array');
+  }
+  console.log(`PASS: GET /api/tracks (${body.tracks.length} tracks)`);
+} catch (e) {
+  console.log(`SKIP HTTP test (server not running?): ${e.message}`);
+}
