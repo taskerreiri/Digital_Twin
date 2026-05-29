@@ -157,6 +157,7 @@ namespace DT.Entities
                 foreach (var p in td.points) pts.Add((p.lat, p.lon, p.timestamp));
                 entity.trail?.SetPoints(pts);
             }
+            ApplyHighlight(); // 遅延seedされたtrailにも現在の強調状態を反映
         }
 
         // 種別トグル (TrailControlUI から設定)。初期=両方ON
@@ -334,6 +335,7 @@ namespace DT.Entities
                     entities.TryGetValue(msg.entityId, out var rem))
                 {
                     if (rem.go != null) Destroy(rem.go);
+                    if (rem.trail != null) Destroy(rem.trail.gameObject);
                     entities.Remove(msg.entityId);
                 }
                 return;
@@ -454,8 +456,9 @@ namespace DT.Entities
             Color col = Color.gray;
             if (!string.IsNullOrEmpty(msg.color))
                 ColorUtility.TryParseHtmlString(msg.color, out col);
-            // resolver: lat/lon -> world (現在位置と同じ変換経路)
-            trail.Init(col, (lat, lon) => ResolvePosition(lat, lon, msg.entityType));
+            // resolver: lat/lon -> world (現在位置と同じ変換経路)。msg全体を抱えないよう型だけローカル捕捉
+            string et = msg.entityType;
+            trail.Init(col, (lat, lon) => ResolvePosition(lat, lon, et));
             // 種別トグルの現在状態を反映
             trail.SetVisible(IsTypeVisible(msg.entityType));
             return trail;
