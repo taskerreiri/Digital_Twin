@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using UnityEngine;
+using UnityEngine.Networking;
+using System.Collections;
 using DT.GPS;
 
 #if !UNITY_WEBGL || UNITY_EDITOR
@@ -55,6 +57,7 @@ namespace DT.Entities
     {
         [Header("Connection")]
         [SerializeField] string serverWsUrl = "ws://localhost:9300/ws";
+        [SerializeField] string apiBaseUrl = "http://localhost:9300";
 
         [Header("References")]
         [SerializeField] GPSCalibrator calibrator;
@@ -85,6 +88,7 @@ namespace DT.Entities
             public string type;
             public double lat, lon;   // 最新GPS (再キャリブレーション用)
             public bool fused;        // カメラ検出: GPS融合済みか (色更新判定用)
+            public EntityTrail trail; // 移動軌跡 (GPS/QRエンティティのみ。カメラblipは無し)
         }
 
         // ---- WebGL jslib bridge ----
@@ -110,6 +114,92 @@ namespace DT.Entities
                 calSync.OnCalibrationApplied += RecalculateAll;
 
             Connect();
+            StartCoroutine(LoadInitialTracks());
+        }
+
+        [Serializable] class TrackPoint { public double lat; public double lon; public long timestamp; }
+        [Serializable] class TrackData { public string entityId; public string entityType; public string color; public TrackPoint[] points; }
+        [Serializable] class TrackResponse { public TrackData[] tracks; }
+
+        IEnumerator LoadInitialTracks()
+        {
+            string url = $"{apiBaseUrl}/api/tracks?minutes=5&limit=200";
+            using var req = UnityWebRequest.Get(url);
+            yield return req.SendWebRequest();
+            if (req.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogWarning($"[EntityManager] track load failed: {req.error} (WSのappendのみで構築)");
+                yield break;
+            }
+            TrackResponse resp;
+            try { resp = JsonUtility.FromJson<TrackResponse>(req.downloadHandler.text); }
+            catch (Exception ex) { Debug.LogWarning($"[EntityManager] track parse error: {ex.Message}"); yield break; }
+            if (resp?.tracks == null) yield break;
+
+            foreach (var td in resp.tracks)
+            {
+                if (td == null || td.points == null || td.points.Length == 0) continue;
+                // エンティティがまだ無ければ最新点でアバターを生成しておく(WSスナップショットと重複しても上書きされるだけ)
+                var last = td.points[td.points.Length - 1];
+                var seed = new DTMessage {
+                    type = "position_update", entityId = td.entityId, entityType = td.entityType,
+                    color = td.color, lat = last.lat, lon = last.lon, timestamp = last.timestamp };
+                if (!entities.TryGetValue(td.entityId, out var entity))
+                {
+                    Vector3 pos = ResolvePosition(seed.lat, seed.lon, seed.entityType);
+                    entity = new Entity { type = seed.entityType, lat = seed.lat, lon = seed.lon, targetPos = pos };
+                    entity.go = CreateAvatar(seed);
+                    entity.go.transform.position = pos;
+                    entity.trail = CreateTrail(seed);
+                    entities[td.entityId] = entity;
+                }
+                var pts = new List<(double, double, long)>(td.points.Length);
+                foreach (var p in td.points) pts.Add((p.lat, p.lon, p.timestamp));
+                entity.trail?.SetPoints(pts);
+            }
+            ApplyHighlight(); // 遅延seedされたtrailにも現在の強調状態を反映
+        }
+
+        // 種別トグル (TrailControlUI から設定)。初期=両方ON
+        public bool ShowWorkerTrails = true;
+        public bool ShowEquipmentTrails = true;
+        string highlightedId = null; // クリック強調中のエンティティ (null=全体通常)
+
+        bool IsTypeVisible(string entityType)
+        {
+            if (entityType == "equipment") return ShowEquipmentTrails;
+            if (entityType == "worker") return ShowWorkerTrails;
+            return true; // その他(material等)は trail を持たないが念のため
+        }
+
+        /// <summary>種別トグル変更時に全 trail の表示状態を再適用する。強調は ApplyHighlight に一本化。</summary>
+        public void ApplyTrailVisibility()
+        {
+            foreach (var e in entities.Values)
+            {
+                if (e.trail == null) continue;
+                e.trail.SetVisible(IsTypeVisible(e.type));
+            }
+            ApplyHighlight();
+        }
+
+        // 強調中は対象 trail を濃く・他を減光。強調なしは全て通常。
+        void ApplyHighlight()
+        {
+            foreach (var kv in entities)
+            {
+                var e = kv.Value;
+                if (e.trail == null) continue;
+                float intensity = (highlightedId == null || kv.Key == highlightedId) ? 1f : 0.25f;
+                e.trail.SetIntensity(intensity);
+            }
+        }
+
+        string FindEntityIdByGameObject(GameObject go)
+        {
+            foreach (var kv in entities)
+                if (kv.Value.go == go) return kv.Key;
+            return null;
         }
 
         /// <summary>キャリブレーション変更時、全エンティティの位置を再計算する</summary>
@@ -120,6 +210,7 @@ namespace DT.Entities
                 if (e.go == null) continue;
                 Vector3 pos = ResolvePosition(e.lat, e.lon, e.type);
                 e.targetPos = pos;
+                e.trail?.Rebuild();
             }
         }
 
@@ -209,6 +300,31 @@ namespace DT.Entities
                     e.go.transform.position = Vector3.Lerp(
                         e.go.transform.position, e.targetPos, dt);
             }
+
+            // マウスクリックでアバター強調 (左クリック)
+            if (Input.GetMouseButtonDown(0))
+            {
+                var cam = Camera.main;
+                if (cam == null)
+                {
+                    Debug.LogWarning("[EntityManager] クリック強調: MainCamera タグのカメラが無く無効化");
+                }
+                else
+                {
+                    var ray = cam.ScreenPointToRay(Input.mousePosition);
+                    if (Physics.Raycast(ray, out var hit))
+                    {
+                        // アバター(またはその子)に対応するエンティティを探す
+                        string hitId = FindEntityIdByGameObject(hit.collider.gameObject);
+                        highlightedId = (hitId != null && hitId == highlightedId) ? null : hitId;
+                    }
+                    else
+                    {
+                        highlightedId = null; // 何もない所をクリックで解除
+                    }
+                    ApplyHighlight();
+                }
+            }
         }
 
         void HandleMessage(string json)
@@ -223,6 +339,7 @@ namespace DT.Entities
                     entities.TryGetValue(msg.entityId, out var rem))
                 {
                     if (rem.go != null) Destroy(rem.go);
+                    if (rem.trail != null) Destroy(rem.trail.gameObject);
                     entities.Remove(msg.entityId);
                 }
                 return;
@@ -253,11 +370,13 @@ namespace DT.Entities
                 entity = new Entity { type = msg.entityType };
                 entity.go = CreateAvatar(msg);
                 entity.go.transform.position = pos;
+                entity.trail = CreateTrail(msg);
                 entities[msg.entityId] = entity;
             }
             entity.lat = msg.lat;
             entity.lon = msg.lon;
             entity.targetPos = pos;
+            entity.trail?.Append(msg.lat, msg.lon, msg.timestamp);
         }
 
         void HandleDetection(DTMessage msg)
@@ -330,6 +449,23 @@ namespace DT.Entities
             label.displayName = string.IsNullOrEmpty(msg.displayName) ? msg.entityId : msg.displayName;
 
             return go;
+        }
+
+        // GPSアバター用に軌跡 LineRenderer を生成し、エンティティ色とworld変換resolverで初期化
+        EntityTrail CreateTrail(DTMessage msg)
+        {
+            var trailGo = new GameObject($"trail:{msg.entityId}");
+            trailGo.transform.SetParent(transform);
+            var trail = trailGo.AddComponent<EntityTrail>();
+            Color col = Color.gray;
+            if (!string.IsNullOrEmpty(msg.color))
+                ColorUtility.TryParseHtmlString(msg.color, out col);
+            // resolver: lat/lon -> world (現在位置と同じ変換経路)。msg全体を抱えないよう型だけローカル捕捉
+            string et = msg.entityType;
+            trail.Init(col, (lat, lon) => ResolvePosition(lat, lon, et));
+            // 種別トグルの現在状態を反映
+            trail.SetVisible(IsTypeVisible(msg.entityType));
+            return trail;
         }
 
         GameObject CreateCameraBlip(DTMessage msg)

@@ -6,7 +6,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { recordPosition, recordMaterial, getSnapshot, recordCalibration, getCalibration,
+import { recordPosition, recordMaterial, getSnapshot, getTracks, recordCalibration, getCalibration,
          recordDetection, getDetections, purgeStaleDetections } from './db.js';
 import { recomputeTransform } from './geotransform.js';
 import { fuseDetection } from './fusion.js';
@@ -171,6 +171,24 @@ app.get('/api/entities', (req, res) => {
   res.json(getSnapshot());
 });
 
+app.get('/api/tracks', (req, res) => {
+  const minutes = req.query.minutes != null ? Number(req.query.minutes) : 5;
+  const limit = req.query.limit != null ? Number(req.query.limit) : 200;
+  const type = req.query.type || null;
+  // 将来の履歴ビューア用の受け口(未指定時は minutes 窓)
+  const from = req.query.from != null ? Number(req.query.from) : null;
+  const to = req.query.to != null ? Number(req.query.to) : null;
+
+  if (!Number.isFinite(minutes) || minutes <= 0 ||
+      !Number.isFinite(limit) || limit <= 0 ||
+      (from != null && !Number.isFinite(from)) ||
+      (to != null && !Number.isFinite(to))) {
+    return res.status(400).json({ error: 'invalid query parameter' });
+  }
+
+  res.json({ tracks: getTracks({ minutes, limit, type, from, to }) });
+});
+
 app.post('/api/position', checkAuth, (req, res) => {
   const body = req.body;
   const events = Array.isArray(body.events) ? body.events : [body];
@@ -245,7 +263,7 @@ setInterval(() => {
 
 server.listen(PORT, () => {
   console.log(`DT Server listening on http://0.0.0.0:${PORT}`);
-  console.log(`  REST: /api/position /api/material /api/entities /api/zones /api/health`);
+  console.log(`  REST: /api/position /api/material /api/entities /api/zones /api/health /api/tracks`);
   console.log(`  WS:   ws://0.0.0.0:${PORT}/ws`);
   console.log(`  Token: ${TOKEN}`);
   console.log(`  Zones: ${zones.zones.length}`);

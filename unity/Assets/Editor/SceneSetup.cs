@@ -77,6 +77,12 @@ public class SceneSetup
         entitySO.FindProperty("calibrator").objectReferenceValue = calibrator;
         entitySO.ApplyModifiedProperties();
 
+        // --- Trail Control UI (trail visibility toggle panel) ---
+        var trailControlUI = entityRoot.AddComponent<TrailControlUI>();
+        var trailControlSO = new SerializedObject(trailControlUI);
+        trailControlSO.FindProperty("entityManager").objectReferenceValue = entityMgr;
+        trailControlSO.ApplyModifiedProperties();
+
         // --- EventSystem ---
         if (Object.FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>() == null)
         {
